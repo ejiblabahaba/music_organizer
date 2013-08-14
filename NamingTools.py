@@ -1,7 +1,11 @@
+# -*- coding: utf8 -*-
 """A collection of tools for handling file quality information."""
-from mutagen.mp3 import MP3
-from mutagen.flac import FLAC
+from mutagen.mp3 import MP3, HeaderNotFoundError, InvalidMPEGHeader
+from mutagen.flac import FLAC, FLACNoHeaderError, FLACVorbisError
+import os
+from FormatTools import writeWrapper as ww
 
+project_dir = os.getcwd()
 valid_extensions = ('.mp3', '.flac')
 u = '$UNKN$'
 
@@ -15,14 +19,18 @@ def getVBRQuality(item):
 	VBR_quality: An integer in range -1-9, corresponding to VBR quality.
 				 -1 represents an unknown value.
 	"""
-	with open(item, 'rb') as f:
-		for i in range(4): #if it isn't in 32MB of data, something's wrong.
-			data = f.read(8192)
-			index = data.find('LAME3')
-			if index != -1:
-				quality = ord(data[index - 1])
-				VBR_quality = abs((quality + 9) // 10 - 10)
-				return VBR_quality
+	try:
+		with open(item, 'rb') as f:
+			for i in range(4): #if it isn't in 32MB of data, something's wrong.
+				data = f.read(8192)
+				index = data.find('LAME3')
+				if index != -1:
+					quality = ord(data[index - 1])
+					VBR_quality = abs((quality + 9) // 10 - 10)
+					return VBR_quality
+			return -1
+	except IOError:
+		print item, "has a fucking weird file name"
 		return -1
 
 def consensus(items):
@@ -80,11 +88,15 @@ def validExtensions(files):
 
 def addOneToProperty(k,D):
 	"""Adds 1 to D[k] if k exists, or sets D[k] to 1. Returns D."""
-	if k in D:
-		D[k] += 1
-	else:
-		D[k] = 1
-	return D
+	try:
+		if k in D:
+			D[k] += 1
+		else:
+			D[k] = 1
+		return D
+	except TypeError, e:
+		print "apparently this is a list: ", D, k
+		raise
 
 def getNewFolderName(dr):
 	"""Takes a directory, performs mutagen voodoo on each file that has a
@@ -96,9 +108,11 @@ def getNewFolderName(dr):
 	RETURNS:
 	suggested_name: A string with the suggested rename.
 	"""
+	os.chdir(dr)
 	files = validExtensions(os.listdir(dr))
 	if files == []: return "<no suggestion>"
 
+	broken = []
 	albums = {}
 	years = {}
 	qualities = {}
@@ -106,45 +120,73 @@ def getNewFolderName(dr):
 	rename_keys = ['al','yr','ql']
 
 	for item in files:
+		try:
+			name_copy = str(item)
+		except UnicodeEncodeError, e:
+			print "broke on item ", item
+			print "Attempting unicode magic"
+			name_copy = str(item.encode('utf8','replace'))
 		path = dr + '\\' + item
 		if item.lower().endswith('.mp3'): #handles mp3s
-			item = MP3(item)
-			#album
-			album = item.tags.getall('TALB')
-			if album != []:
-				album = album[0].text[0]
-			else:
-				album = u
-			#year
-			year = item.tags.getall('TDRC')
-			if year != []:
-				year = year[0].text[0]
-			else:
-				year = u
-			#quality
-			if isVBR(item):
-				VBR_quality = getVBRQuality(item)
-				if VBR_quality != -1:	q = 'V' + str(VBR_quality)
-				else: q = u
-			else:
-				q = item.info.bitrate / 1000
+			try:
+				item = MP3(item)
+				#album
+				try:
+					album = item.tags.getall('TALB')
+				except AttributeError:
+					print name_copy," has weird fuckin album tags"
+					album = []
+					broken.append(os.path.join(dr,name_copy))
+				if album != []:
+					album = str(album[0].text[0])
+				else:
+					album = u
+				#year
+				try:
+					year = item.tags.getall('TDRC')
+				except AttributeError:
+					print name_copy," has weird fuckin date tags"
+					year = []
+					broken.append(os.path.join(dr,name_copy))
+				if year != []:
+					year = str(year[0].text[0])
+				else:
+					year = u
+				#quality
+				if isVBR(item):
+					VBR_quality = getVBRQuality(name_copy)
+					if VBR_quality != -1:	q = 'V' + str(VBR_quality)
+					else: q = u
+				else:
+					q = item.info.bitrate / 1000
+			except HeaderNotFoundError:
+				print "No header found on ", item, ", skipping..."
+				broken.append(os.path.join(dr,item))
 		elif item.lower().endswith('.flac'): #handles flacs
-			item = FLAC(item)
-			q = 'FLAC'
 			try:
-				year = item['date']
-			except KeyError:
-				year = u
-			try:
-				album = item['album']
-			except KeyError:
-				album = u
+				item = FLAC(item)
+				q = 'FLAC'
+				try:
+					year = item['date'][0]
+				except KeyError:
+					year = u
+				try:
+					album = item['album'][0]
+				except KeyError:
+					album = u
+			except FLACNoHeaderError:
+				print "No header found on ", item, ", skipping..."
+				broken.append(os.path.join(dr,item))
 		else:
 			raise ValueError, "File type not recognized."
 		#update dictionaries
-		albums = addOneToProperty(album,albums)
-		years = addOneToProperty(year,years)
-		qualities = addOneToProperty(q,qualities)
+		try:
+			albums = addOneToProperty(album,albums)
+			years = addOneToProperty(year,years)
+			qualities = addOneToProperty(q,qualities)
+		except TypeError, e:
+			print "broke on file ", name_copy
+			raise
 	report = {}
 	for key in rename_keys:
 		if rename_props[key] != {}:
@@ -160,5 +202,36 @@ def getNewFolderName(dr):
 	e = report['yr_report']
 	f = report['ql_report']
 
-	suggested_name = '%s (%s) [%s]|%s,%s,%s' % a,b,c,d,e,f
+	seen = set()
+	seen_add = seen.add
+	unique_broken = [x for x in broken if x not in seen and not seen_add(x)]
+	ww(project_dir + '\\broken.txt',unique_broken)
+
+	suggested_name = '%s (%s) [%s]|%s,%s,%s' % (a,b,c,d,e,f)
 	return suggested_name
+
+def createSuggestions(dirs):
+	"""Creates suggestions for every dir in dirs.
+
+	ARGS:
+	dirs: A list of dirs in need of fixing.
+
+	YIELDS:
+	suggestion: a string containing the original directory and a suggestion for
+		a rename. An example is below:
+
+		oldpath$album (year) [codec]|album,year,quality reports
+	"""
+	for i in range(len(dirs)):
+		try:
+			output = str(dirs[i])+'$'+getNewFolderName(dirs[i])
+		except UnicodeEncodeError:
+			print "this fucker keeps breaking everything"
+			print dirs[i]
+		yield output
+
+def grabCleanProposed():
+	os.chdir(project_dir)
+	with open('proposed.txt','r') as f:
+		clean = [line for line in f.readlines() if u not in line]
+	return clean

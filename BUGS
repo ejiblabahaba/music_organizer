@@ -1,0 +1,10 @@
+KNOWN BUGS: (rev 0.2)
+-I need a better way of handling unicode errors than throwing unicode at the
+ wall and hoping it sticks. createSuggestions() is a primary and necessary
+ example: directories are constantly breaking the open interface because there
+ are characters that python just can't handle. I'm unsure of a solution, but I
+ plan to speak with a developer I know well who has probably dealt with many of
+ these same issues in the implementation of a chat client.
+-There are an unusually large number of $UNKN$ values being suggested for codecs.
+ I presume this is a problem with getVBRQuality() not correctly identifying the
+ VBR header, or otherwise yielding senseless values.

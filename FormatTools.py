@@ -1,3 +1,4 @@
+# -*- coding: utf8 -*-
 """A collection of tools for discovering directory structure, and finding
 directories which are in need of repair."""
 
@@ -18,12 +19,15 @@ def writeWrapper(name,data):
 	RETURNS:
 	None.
 	"""
-	with open(name,'w') as f:
+	with open(name,'a') as f:
 		for x in data:
 			try:
 				f.write(x + '\n')
 			except UnicodeEncodeError:
-				print "The following broke on writing: %s" % x
+				try:
+					f.write(x.encode('utf8','replace') + '\n')
+				except UnicodeEncodeError:
+					print "The following broke on writing: %s" % x
 
 def getIgnores(ignore_str, path="Z:\\", dirs=None, specials=None):
 	"""Returns directories that are ignored, based on starting character.
@@ -64,7 +68,8 @@ def walkToDepth(depth=1,path=u'Z:\\'):
 	path, dirs, files = next(os.walk(path))
 	del(files)
 	
-	ignore = getIgnores('-',path=path,dirs=dirs,specials=['Singles'])
+	ignore = getIgnores('-',path=path,dirs=dirs,
+		specials=['Singles','Kyle Landry','Seraphim','Various Artists'])
 	for x in loop(ignore):
 		try:
 			dirs.remove(ignore[x])
@@ -141,6 +146,3 @@ def getFileInfo(path=u"Z:\\",dirs=None, fx=_extLoop):
 
 	if '' in items: items.remove('')
 	return items
-
-if __name__ == '__main__':
-	print "Don't run this as __main__."

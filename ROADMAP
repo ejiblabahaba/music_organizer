@@ -1,0 +1,11 @@
+ROADMAP: (rev 0.2)
+0) fix known bugs, implement new ones
+	-prioritize less shady unicode hacks and more clean code
+1) get clean values for folder renaming ready for testing and test renaming
+2) get all this crap into a SQL database because it's getting overwhelming
+3) develop an ErrorTools module to collect, parse, and review errors
+4) color-coded CSV to negotiate consensus, if still needed
+5) GUI and other usability improvements
+6) FileTools module for file manipulation (it can be done, based on tags)
+7) ScrapeTools for metadata web scrape. Consider using WCD API, it's curated
+8) add functionality for other file formats I don't use or care about
