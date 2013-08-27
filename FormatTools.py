@@ -2,32 +2,128 @@
 """A collection of tools for discovering directory structure, and finding
 directories which are in need of repair."""
 
+import bencode
+import codecs
 import os
 import re
+import shutil
+import tempfile
 
 """Black magic and shady hacks, do not touch"""
 loop = lambda x: range(len(x))
-r = r"(.*) \([0-9]{4}\) \[(FLAC|V[0-9]|[0-9]{3}|AAC|WAV|APE|OGG|ABR|WMA)\]|Singles"
+r = r"(.*) \([0-9]{4}\) \[(FLAC|V[0-9]|[0-9]{3}|AAC|WAV|APE|OGG|ABR|WMA|M4A|M4P)\]|Singles"
 
-def writeWrapper(name,data):
+def writeWrapper(name,data,flag='w'):
 	"""Wrapper for writing because I'm tired of juggling fileout flags.
 
 	ARGS:
 	name: Name of file in working directory to which data is written.
 	data: A list of data to be written.
+	flag: Juggled fileout flags. Defaults to 'w'
 
 	RETURNS:
 	None.
 	"""
-	with open(name,'a') as f:
+	with open(name,flag) as f:
 		for x in data:
+			x+='\n'
 			try:
-				f.write(x + '\n')
+				f.write(x)
 			except UnicodeEncodeError:
-				try:
-					f.write(x.encode('utf8','replace') + '\n')
-				except UnicodeEncodeError:
-					print "The following broke on writing: %s" % x
+				print "The following broke on writing: %s" % x
+
+def _uTorrentMagic():
+	"""Open/close utorrent for snapshot read of resume.dat"""
+	q = False
+	try:
+		s = ("C:\\Users\\" + os.getlogin() + 
+			"\\AppData\\Roaming\\uTorrent")
+		with open(s+'\\resume.dat'): pass
+	except IOError:
+		raise IOError("Cannot find resume.dat")
+	else:
+		#is uTorrent on?
+		proc_out = Popen('TASKLIST /FI "IMAGENAME eq uTorrent.exe"',
+			stdout=PIPE,shell=True).stdout.read()
+		if b'uTorrent.exe' in proc_out:
+			q = True
+			try:
+				status = os.system("TASKKILL /IM uTorrent.exe")
+			except OSError:
+				print "OSError on os.system taskkill of uTorrent..."
+			finally:
+				if status != 0:
+					raise RuntimeError("uTorrent could not be killed.")
+	finally:
+		f = open(s+'\\resume.dat','rb')
+		torrent_data = f.read()
+		f.close()
+		if q == True:
+			status = os.system(s+'\\uTorrent.exe')
+			if status != 0:
+				raise RuntimeError("uTorrent could not be restarted.")
+		return torrent_data
+
+def findPaths(fname=None):
+	"""Takes name of torrent resume.dat file, returns all paths. If fname is not
+	specified, tries to grab data from utorrent resume.dat file on system using
+	os.getlogin(). If resume.dat is not located at the given address, OSError is
+	raised. If uTorrent is open, it will be shut down and restarted. 
+
+	ARGS:
+	fname - Name or path of input file.
+
+	RETURNS:
+	paths: A list of every path found in the file.
+	"""
+	if fname == None:
+		torrent_data = _uTorrentMagic()
+	else:
+		f = open(fname,'rb')
+		torrent_data = f.read()
+		f.close()
+	data = bencode.bdecode(torrent_data)
+	paths = []
+	keys = data.keys()
+	for i in range(len(keys)):
+		try:
+			paths.append(data[keys[i]]['path'])
+		except TypeError: pass
+	paths.sort()
+	return paths
+
+def markForbidden(dirs):
+	"""Puts an empty file called .STAYOUT in each directory in dirs.
+
+	ARGS:
+	dirs - A list of directories with full path names.
+
+	RETURNS:
+	None.
+	"""
+	for path in dirs:
+		try:
+			with open(path+'\\.STAYOUT','w'): pass
+		except:
+			head,tail = os.path.split(path)
+			try:
+				with open(head+'\\.STAYOUT','w'): pass
+			except:
+				print "%s is broken" % path
+
+def forbid(fname=None):
+	"""Clean forbid of all uTorrent dirs. Fname feeds to findPaths."""
+	paths = findPaths(fname)
+	cwd = os.getcwdu()
+	tmpdir = tempfile.mkdtemp()
+	os.chdir(tmpdir)
+	writeWrapper('torrents.txt',paths)
+	with codecs.open('torrents.txt',encoding="UTF-8") as f:
+		paths = [line.strip('\r\n') for line in f]
+	os.chdir(cwd)
+	shutil.rmtree(tmpdir)
+	markForbidden(paths)
+
 
 def getIgnores(ignore_str, path="Z:\\", dirs=None, specials=None):
 	"""Returns directories that are ignored, based on starting character.

@@ -1,25 +1,21 @@
-MusicManager Revision 0.2:
+MusicManager Revision 0.3:
 
-MusicManager is a collection of hacky garbage designed to handle the obnoxious
-directories in my music folder which don't conform to my specifications, but
-were added from sources where this could not immediately be helped (i.e. low
-overall quality of directory/tagging curation). Its current scope only works
-with directory renaming, but in the future it's very likely that the program
-could be used as a fully functional music manager.
+MusicManager is a collection of hacky garbage designed to handle all of my
+music. It started as an attempt to make my media collection parsable at the
+folder level. Now, I plan to make it parsable at the file level as well, and
+I hope to incorporate automated tagging for files lacking it. Eventually, I
+may even tie everything together in a spiffy GUI.
 
 This project is an earnest attempt to expand my understanding of large-scale
 project workflow, the use of GitHub as a resource, and management of the kind
-of complexity that large-scale projects evolve over time. I'm coding to the
-best of my ability, though time constraints often limit my ability to comment
-larger sections of complex functions, an issue I hope to fix over time.
+of complexity that large-scale projects evolve over time. It's not going to be
+extremely high quality, and it probably won't be very professional.
 
-Since I'm working two other jobs totaling over 60 hrs a week, I don't have much
-time or effort to sink into this project, or this readme. All the code is well-
-documented in most cases, though I can think of a couple of small exceptions.
-The point is, you're on your own if you feel any of this stuff can be helpful
-to you.
-
-If for some reason you've poked your head into this repo and like what you see,
-feel free to do whatever you want with it.
+Whatever. It'll be fun.
 
 -Ejiblabahaba
+
+====================
+=USAGE INSTRUCTIONS=
+====================
+Don't.

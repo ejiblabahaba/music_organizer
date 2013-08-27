@@ -2,12 +2,15 @@
 """A collection of tools for handling file quality information."""
 from mutagen.mp3 import MP3, HeaderNotFoundError, InvalidMPEGHeader
 from mutagen.flac import FLAC, FLACNoHeaderError, FLACVorbisError
+from mutagen.m4a import M4A, M4AMetadataError
 import os
+import re
 from FormatTools import writeWrapper as ww
 
-project_dir = os.getcwd()
-valid_extensions = ('.mp3', '.flac')
-u = '$UNKN$'
+project_dir = os.getcwdu()
+valid_extensions = (u'.mp3', u'.flac', u'.m4a', u'.m4p')
+u = u'$UNKN$'
+r = r"[0-9]{4}"
 
 def getVBRQuality(item):
 	"""Takes file and checks VBR quality.
@@ -61,27 +64,11 @@ def consensus(items):
 		top_score = key_val[0][0]
 	return top_score, consensus
 
-def isVBR(item): #dev notes: this should be private in class
-	"""Tests whether item is a VBR file, based on mutagen's quality info.
-	Occasionally this may be incorrect. There's no way to tell yet.
-
-	ARGS:
-	item: A mutagen MP3 object.
-
-	RETURNS:
-	A boolean indicating whether item is a VBR file.
-	"""
-	return ((item.info.bitrate / 1000.) % 8) != 0
+isVBR = lambda item: ((item.info.bitrate / 1000.) % 8) != 0
+	"""Tests whether item is a VBR file, returns boolean"""
 
 def validExtensions(files):
-	"""Returns list with only valid extensions.
-
-	ARGS:
-	files: A list of strings of file names.
-
-	RETURNS:
-	files: A list of strings of file names with valid extensions.
-	"""
+	"""Returns list with only valid extensions."""
 	rm = [x for x in files if not x.lower().endswith(valid_extensions)]
 	for x in range(len(rm)): files.remove(rm[x])
 	return files
@@ -95,7 +82,7 @@ def addOneToProperty(k,D):
 			D[k] = 1
 		return D
 	except TypeError, e:
-		print "apparently this is a list: ", D, k
+		print "apparently this isn't a dictionary:", D, k
 		raise
 
 def getNewFolderName(dr):
@@ -150,12 +137,16 @@ def getNewFolderName(dr):
 					broken.append(os.path.join(dr,name_copy))
 				if year != []:
 					year = str(year[0].text[0])
+					if len(year) != 4:
+						yl = re.findall(r,year)
+						if yl != []: year = yl[0]
+						else: year = u
 				else:
 					year = u
 				#quality
 				if isVBR(item):
 					VBR_quality = getVBRQuality(name_copy)
-					if VBR_quality != -1:	q = 'V' + str(VBR_quality)
+					if VBR_quality != -1: q = 'V' + str(VBR_quality)
 					else: q = u
 				else:
 					q = item.info.bitrate / 1000
@@ -168,6 +159,10 @@ def getNewFolderName(dr):
 				q = 'FLAC'
 				try:
 					year = item['date'][0]
+					if len(year) != 4:
+						yl = re.findall(r,year)
+						if yl != []: year = yl[0]
+						else: year = u
 				except KeyError:
 					year = u
 				try:
@@ -176,6 +171,26 @@ def getNewFolderName(dr):
 					album = u
 			except FLACNoHeaderError:
 				print "No header found on ", item, ", skipping..."
+				broken.append(os.path.join(dr,item))
+		elif item.lower().endswith('.m4a') or item.lower().endswith('m4p'):
+			try:
+				if item.lower().endswith('.m4a'): q = 'M4A'
+				else: q = 'M4P'
+				item = M4A(item)
+				try:
+					year = item.tags['\xa9day']
+					if len(year) != 4:
+						yl = re.findall(r,year)
+						if yl != []: year = yl[0]
+						else: year = u
+				except KeyError:
+					year = u
+				try:
+					album = item.tags['\xa9alb']
+				except KeyError:
+					album = u
+			except:
+				print "A dumb thing happened on", item, ", whatever"
 				broken.append(os.path.join(dr,item))
 		else:
 			raise ValueError, "File type not recognized."
@@ -224,14 +239,40 @@ def createSuggestions(dirs):
 	"""
 	for i in range(len(dirs)):
 		try:
-			output = str(dirs[i])+'$'+getNewFolderName(dirs[i])
+			output = str(dirs[i])+u'?'+getNewFolderName(dirs[i])
 		except UnicodeEncodeError:
 			print "this fucker keeps breaking everything"
 			print dirs[i]
 		yield output
 
-def grabCleanProposed():
-	os.chdir(project_dir)
-	with open('proposed.txt','r') as f:
-		clean = [line for line in f.readlines() if u not in line]
-	return clean
+def rename(proposed):
+	"""Takes proposals and renames them.
+
+	ARGS:
+	propsed - a list of proposals, formatted such:
+		<old full path>$$$<new dir stub>
+
+	RETURNS:
+	None.
+	"""
+	try:
+		for line in proposed:
+			sep = line.find(u"?")
+			old = line[:sep]
+			dst = line[sep+1:].strip("\n")
+			l = old.split("\\")
+			src = l.pop()
+			path = ""
+			for item in l:
+				path += item + "\\"
+			os.chdir(path)
+			os.rename(src,dst)
+	except:
+		print "%s fucked up" % line
+	finally:
+		print "Job's done."
+
+makeClean = lambda proposed: [item for item in proposed if u not in item]
+"""Scrubs proposed dirs for unknown string, and removes them."""
+makeUnclean = lambda proposed: [item for item in proposed if u in item]
+"""Scrubs proposed dirs if unknown string is not present."""

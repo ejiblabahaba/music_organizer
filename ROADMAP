@@ -1,11 +1,16 @@
-ROADMAP: (rev 0.2)
+ROADMAP (rev 0.3)
+=================
 0) fix known bugs, implement new ones
-	-prioritize less shady unicode hacks and more clean code
-1) get clean values for folder renaming ready for testing and test renaming
-2) get all this crap into a SQL database because it's getting overwhelming
+	-NamingTools won't work right now because unicode. This doesn't matter much
+	 to me, because NamingTools is basically useless to me now. The only use
+	 case I could conceive is if I were to reincorporate that test file that's
+	 floating around somewhere, and use that for smart file names.
+0.5) Make a process which waits in the background, and then updates new torrents
+1) FileTools module for file manipulation (it can be done, based on tags)
+	-Parsing should now be possible since all directories are standardized
+	-Forbidden directories can be avoided by using .STAYOUT files
+2) ScrapeTools for metadata web scrape.
+	-MUSICBRAINZ MUSICBRAINZ MUSICBRAINZ
 3) develop an ErrorTools module to collect, parse, and review errors
-4) color-coded CSV to negotiate consensus, if still needed
-5) GUI and other usability improvements
-6) FileTools module for file manipulation (it can be done, based on tags)
-7) ScrapeTools for metadata web scrape. Consider using WCD API, it's curated
-8) add functionality for other file formats I don't use or care about
+4) GUI and other usability improvements
+5) add functionality for other file formats I don't use or care about

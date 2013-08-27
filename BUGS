@@ -1,10 +1,18 @@
-KNOWN BUGS: (rev 0.2)
--I need a better way of handling unicode errors than throwing unicode at the
- wall and hoping it sticks. createSuggestions() is a primary and necessary
- example: directories are constantly breaking the open interface because there
- are characters that python just can't handle. I'm unsure of a solution, but I
- plan to speak with a developer I know well who has probably dealt with many of
- these same issues in the implementation of a chat client.
--There are an unusually large number of $UNKN$ values being suggested for codecs.
- I presume this is a problem with getVBRQuality() not correctly identifying the
- VBR header, or otherwise yielding senseless values.
+KNOWN BUGS (rev 0.3)
+====================
+NamingTools
+	Cause: Laziness, using strs like an idiot
+
+	Description:
+NamingTools is broken. This is because the quick, hacky bullshit I pumped into
+FormatTools, specifically into the writeWrapper, is no longer there. Whenever
+a weirdly encoded string is passed to stuff, random errors are going to start
+appearing everywhere.
+	
+	Solution:
+The solution is to read dirnames as python's pretend version of unicode, and
+treat a str like an actually immutable str SHOULD be treated. When I'm not
+tired and overworked, I should go through every function in NamingTools and
+ensure that directory input is truly sanitized and properly preserved.
+====================
+<no other known bugs>
